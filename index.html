@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>800 x 800 圖片產生器</title>
+    <style>
+      body {
+        font-family: "Microsoft JhengHei", Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      #dropArea {
+        border: 2px dashed #ccc;
+        border-radius: 20px;
+        width: 100%;
+        margin: 20px auto;
+        padding: 20px;
+        text-align: center;
+        cursor: pointer;
+      }
+      #dropArea.highlight {
+        border-color: purple;
+      }
+      #fileElem {
+        display: none;
+      }
+      #progress {
+        width: 100%;
+        height: 20px;
+        background-color: #f0f0f0;
+        margin-top: 20px;
+      }
+      #progressBar {
+        width: 0%;
+        height: 100%;
+        background-color: #da6356;
+        transition: width 0.3s ease-in-out;
+      }
+      button {
+        display: block;
+        width: 100%;
+        padding: 10px;
+        background-color: #da6356;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        margin-top: 20px;
+      }
+      button:disabled {
+        background-color: #cccccc;
+        cursor: not-allowed;
+      }
+      #thumbnailContainer {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 20px;
+      }
+      .thumbnail {
+        width: 100px;
+        height: 100px;
+        object-fit: cover;
+      }
+      #info {
+        margin-top: 20px;
+        font-style: italic;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>800 x 800 圖片產生器</h1>
+    <div id="dropArea">
+      <p>將圖片拖曳到這裡或點擊選擇檔案</p>
+      <input type="file" id="fileElem" multiple accept="image/*" />
+    </div>
+    <div id="progress" style="display: none">
+      <div id="progressBar"></div>
+    </div>
+    <button id="cropButton" disabled>開始裁切</button>
+    <button id="downloadButton" disabled>一鍵下載</button>
+    <div id="thumbnailContainer"></div>
+    <div id="info"></div>
+
+    <script>
+      let dropArea = document.getElementById("dropArea");
+      let fileElem = document.getElementById("fileElem");
+      let cropButton = document.getElementById("cropButton");
+      let downloadButton = document.getElementById("downloadButton");
+      let progressBar = document.getElementById("progressBar");
+      let progress = document.getElementById("progress");
+      let thumbnailContainer = document.getElementById("thumbnailContainer");
+      let infoElement = document.getElementById("info");
+
+      let files = [];
+      let croppedImages = [];
+      const MAX_IMAGES = 100;
+
+      ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
+        dropArea.addEventListener(eventName, preventDefaults, false);
+      });
+
+      function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+
+      ["dragenter", "dragover"].forEach((eventName) => {
+        dropArea.addEventListener(eventName, highlight, false);
+      });
+
+      ["dragleave", "drop"].forEach((eventName) => {
+        dropArea.addEventListener(eventName, unhighlight, false);
+      });
+
+      function highlight() {
+        dropArea.classList.add("highlight");
+      }
+
+      function unhighlight() {
+        dropArea.classList.remove("highlight");
+      }
+
+      dropArea.addEventListener("drop", handleDrop, false);
+      dropArea.addEventListener("click", () => fileElem.click());
+      fileElem.addEventListener("change", handleFiles, false);
+      cropButton.addEventListener("click", processImages, false);
+      downloadButton.addEventListener("click", downloadZip, false);
+
+      function handleDrop(e) {
+        let dt = e.dataTransfer;
+        handleFiles({ target: { files: dt.files } });
+      }
+
+      function handleFiles(e) {
+        let newFiles = e.target.files;
+        files = [...files, ...Array.from(newFiles)].slice(0, MAX_IMAGES);
+        updateButtonState();
+        updateInfo();
+      }
+
+      function updateButtonState() {
+        cropButton.disabled = files.length === 0;
+        downloadButton.disabled = croppedImages.length === 0;
+      }
+
+      function updateInfo() {
+        infoElement.textContent = `已選擇 ${files.length} 張圖片。一次最多可處理 ${MAX_IMAGES} 張圖片。`;
+      }
+
+      function processImages() {
+        progress.style.display = "block";
+        croppedImages = [];
+        thumbnailContainer.innerHTML = "";
+        let processed = 0;
+
+        function processNext(index) {
+          if (index >= files.length) {
+            updateButtonState();
+            return;
+          }
+
+          cropAndCompressImage(files[index]).then((croppedFile) => {
+            croppedImages.push(croppedFile);
+            displayThumbnail(croppedFile);
+            processed++;
+            progressBar.style.width = `${(processed / files.length) * 100}%`;
+            processNext(index + 1);
+          });
+        }
+
+        processNext(0);
+      }
+
+      function cropAndCompressImage(file) {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+            canvas.width = 800;
+            canvas.height = 800;
+
+            const size = Math.min(img.width, img.height);
+            const x = (img.width - size) / 2;
+            const y = (img.height - size) / 2;
+
+            ctx.drawImage(img, x, y, size, size, 0, 0, 800, 800);
+
+            let quality = 0.7;
+            let compressedBlob;
+
+            function compress() {
+              canvas.toBlob(
+                (blob) => {
+                  if (blob.size > 150 * 1024 && quality > 0.1) {
+                    quality -= 0.1;
+                    compress();
+                  } else {
+                    compressedBlob = blob;
+                    resolve(
+                      new File([compressedBlob], file.name, {
+                        type: "image/jpeg",
+                      })
+                    );
+                  }
+                },
+                "image/jpeg",
+                quality
+              );
+            }
+
+            compress();
+          };
+          img.src = URL.createObjectURL(file);
+        });
+      }
+
+      function displayThumbnail(file) {
+        const img = document.createElement("img");
+        img.src = URL.createObjectURL(file);
+        img.className = "thumbnail";
+        thumbnailContainer.appendChild(img);
+      }
+
+      function downloadZip() {
+        const zip = new JSZip();
+        croppedImages.forEach((file) => {
+          // Split the file name and extension
+          const nameParts = file.name.split(".");
+          const extension = nameParts.pop();
+          const baseName = nameParts.join(".");
+
+          // Create the new file name with the suffix
+          const newFileName = `${baseName}_800x800.${extension}`;
+
+          zip.file(newFileName, file);
+        });
+        zip.generateAsync({ type: "blob" }).then((content) => {
+          const link = document.createElement("a");
+          link.href = URL.createObjectURL(content);
+          link.download = "裁剪後圖片.zip";
+          link.click();
+        });
+      }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+  </body>
+</html>
