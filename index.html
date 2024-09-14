@@ -59,10 +59,18 @@
         gap: 10px;
         margin-top: 20px;
       }
-      .thumbnail {
+      .thumbnail-wrapper {
         width: 100px;
         height: 100px;
-        object-fit: cover;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+      }
+      .thumbnail {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
       }
       #info {
         margin-top: 20px;
@@ -140,6 +148,7 @@
         files = Array.from(newFiles).slice(0, MAX_IMAGES);
         updateButtonState();
         updateInfo();
+        displayOriginalThumbnails();
       }
 
       function resetState() {
@@ -165,10 +174,24 @@
         }
       }
 
+      function displayOriginalThumbnails() {
+        files.forEach((file, index) => {
+          const wrapper = document.createElement("div");
+          wrapper.className = "thumbnail-wrapper";
+
+          const img = document.createElement("img");
+          img.src = URL.createObjectURL(file);
+          img.className = "thumbnail";
+          img.dataset.index = index;
+
+          wrapper.appendChild(img);
+          thumbnailContainer.appendChild(wrapper);
+        });
+      }
+
       function processImages() {
         progress.style.display = "block";
         croppedImages = [];
-        thumbnailContainer.innerHTML = "";
         let processed = 0;
 
         function processNext(index) {
@@ -179,7 +202,7 @@
 
           cropAndCompressImage(files[index]).then((croppedFile) => {
             croppedImages.push(croppedFile);
-            displayThumbnail(croppedFile);
+            updateThumbnail(croppedFile, index);
             processed++;
             progressBar.style.width = `${(processed / files.length) * 100}%`;
             processNext(index + 1);
@@ -233,11 +256,12 @@
         });
       }
 
-      function displayThumbnail(file) {
-        const img = document.createElement("img");
-        img.src = URL.createObjectURL(file);
-        img.className = "thumbnail";
-        thumbnailContainer.appendChild(img);
+      function updateThumbnail(file, index) {
+        const img = thumbnailContainer.querySelector(`[data-index="${index}"]`);
+        if (img) {
+          img.src = URL.createObjectURL(file);
+          img.style.objectFit = "cover"; // Change to cover for square cropped images
+        }
       }
 
       function downloadZip() {
