@@ -135,8 +135,19 @@
       }
 
       function handleFiles(e) {
+        resetState();
         let newFiles = e.target.files;
-        files = [...files, ...Array.from(newFiles)].slice(0, MAX_IMAGES);
+        files = Array.from(newFiles).slice(0, MAX_IMAGES);
+        updateButtonState();
+        updateInfo();
+      }
+
+      function resetState() {
+        files = [];
+        croppedImages = [];
+        thumbnailContainer.innerHTML = "";
+        progressBar.style.width = "0%";
+        progress.style.display = "none";
         updateButtonState();
         updateInfo();
       }
@@ -147,7 +158,11 @@
       }
 
       function updateInfo() {
-        infoElement.textContent = `已選擇 ${files.length} 張圖片。一次最多可處理 ${MAX_IMAGES} 張圖片。`;
+        if (files.length > 0) {
+          infoElement.textContent = `已選擇 ${files.length} 張圖片。一次最多可處理 ${MAX_IMAGES} 張圖片。`;
+        } else {
+          infoElement.textContent = "";
+        }
       }
 
       function processImages() {
