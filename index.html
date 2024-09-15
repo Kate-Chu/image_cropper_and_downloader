@@ -267,14 +267,6 @@
         function downloadZip() {
           const zip = new JSZip();
           croppedImages.forEach((file) => {
-            // Split the file name and extension
-            const nameParts = file.name.split(".");
-            const extension = nameParts.pop();
-            const baseName = nameParts.join(".");
-
-            // Create the new file name with the suffix
-            const newFileName = `${baseName}_800x800.${extension}`;
-
             zip.file(newFileName, file);
           });
           zip.generateAsync({ type: "blob" }).then((content) => {
