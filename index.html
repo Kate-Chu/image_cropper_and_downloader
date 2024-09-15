@@ -267,7 +267,7 @@
         function downloadZip() {
           const zip = new JSZip();
           croppedImages.forEach((file) => {
-            zip.file(newFileName, file);
+            zip.file(file.name, file);
           });
           zip.generateAsync({ type: "blob" }).then((content) => {
             const link = document.createElement("a");
